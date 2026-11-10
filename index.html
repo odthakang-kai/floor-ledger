@@ -645,7 +645,7 @@ function renderLeads(){
       <div class="m">Met ${fmtDay(e.date)}${e.followUp?` · <span class="pill ${st}">follow up ${fmtDay(e.followUp)}</span>`:""}</div>
       ${e.notes?`<div class="m">${esc(e.notes)}</div>`:""}</div>
       <div class="r"><span class="amt">${e.est?money(e.est):""}</span></div>
-      <div class="acts">${LEAD_STATUS.map(s => `<button class="bs ${s===e.status?"on":""}" data-lead="${e.id}" data-st="${s}">${s}</button>`).join("")}<button class="bs" data-edit="${e.id}">Edit</button></div></div>`;
+      <div class="acts">${LEAD_STATUS.map(s => `<button class="bs ${s===e.status?"on":""}" data-lead="${esc(e.id)}" data-st="${s}">${s}</button>`).join("")}<button class="bs" data-edit="${esc(e.id)}">Edit</button></div></div>`;
   }).join("");
 }
 
@@ -678,12 +678,12 @@ function renderLog(){
       html += `<div class="dh"><span>${fmtDay(cur)}</span><span>${dt?money(dt):""}</span></div>`; }
     const d = describe(e);
     const st = d.status ? `<span class="pill ${d.status==="Approved"?"ok":d.status==="Declined"?"bad":""}">${esc(d.status)}</span>` : "";
-    html += `<div class="row"><span class="tag ${e.type}">${TYPE_LABEL[e.type]}</span>
+    html += `<div class="row"><span class="tag ${esc(e.type)}">${esc(TYPE_LABEL[e.type])}</span>
       <div class="main"><div class="t">${esc(d.title)} ${st} ${e.example?'<span class="pill ex">example</span>':""}</div>
       ${d.pills.length?`<div class="m">${d.pills.map(p => `<span class="pill">${esc(p)}</span>`).join("")}</div>`:""}
       ${d.items?`<ul class="items">${d.items.map(i => `<li><span>${+i.qty>1?`<b>${i.qty}×</b> `:""}${esc(i.category)}${i.brand?" · "+esc(i.brand):""}${i.model?` <span class="mono">${esc(i.model)}</span>`:""}</span><span class="mono">${money((+i.price||0)*(+i.qty||0))}</span></li>`).join("")}</ul>`:""}
       ${e.notes?`<div class="m">${esc(e.notes)}</div>`:""}</div>
-      <div class="r"><span class="amt">${d.amt||""}</span><button class="bs" data-edit="${e.id}">Edit</button></div></div>`;
+      <div class="r"><span class="amt">${d.amt||""}</span><button class="bs" data-edit="${esc(e.id)}">Edit</button></div></div>`;
   });
   $("#logList").innerHTML = html;
 }
@@ -734,7 +734,7 @@ function openForm(type, e){
       <button type="button" class="add" id="addItem">+ Add another item</button>
       <div class="toggles">${tg("f_install","Install",e ? e.install : true)}${tg("f_haul","Haul-away",v.haulAway)}${tg("f_protection","Protection plan",v.protection)}${tg("f_onCard","Paid on store card",v.onCard)}${tg("f_special","Special order",v.special)}</div>
       <div class="fields">${fld("f_pp","Protection plan $",inp("f_pp","number",v.ppAmount||"",'inputmode="decimal" step="0.01" min="0" placeholder="0"'))}
-      ${openLeads.length ? fld("f_lead","Closed from a lead?",`<select id="f_lead"><option value="">No</option>${openLeads.map(l=>`<option value="${l.id}" ${l.id===v.leadId?"selected":""}>${esc(l.name||"Customer")} · ${esc(l.interest||"")}</option>`).join("")}</select>`) : ""}
+      ${openLeads.length ? fld("f_lead","Closed from a lead?",`<select id="f_lead"><option value="">No</option>${openLeads.map(l=>`<option value="${esc(l.id)}" ${l.id===v.leadId?"selected":""}>${esc(l.name||"Customer")} · ${esc(l.interest||"")}</option>`).join("")}</select>`) : ""}
       ${notes("Upsell, what closed it, delivery date")}</div>`;
   }
   if (type==="credit") f = `<div class="fields">${date}${fld("f_result","Result",`<select id="f_result">${opt(["Approved","Pending","Declined"], v.result||"Approved")}</select>`)}
@@ -940,8 +940,25 @@ function makeLocalDb(){
     collection: coll,
     doc: path => { const [c, id] = path.split("/"); return coll(c).doc(id); },
     _raw: () => JSON.parse(JSON.stringify(data)),
-    _merge: d => { let n = 0; for (const [k, v] of Object.entries(d.entries || {})){ if (v && v.type && v.date){ data.entries[k] = v; n++; } }
-      if (d.settings) data.settings = {...data.settings, ...d.settings}; persist(); return n; }
+    /* Restore merges a backup file. A file is outside data, so only well-formed entries get in and numbers are forced to numbers. */
+    _merge: d => {
+      const NUM = ["amount","units","ppAmount","est","count","hours","ts"], STR = ["orderNumber","customer","name","contact","interest","status","followUp","notes","kind","result","category","brand","leadId"];
+      const BOOL = ["protection","install","haulAway","onCard","special","example"];
+      let n = 0;
+      for (const [k, v] of Object.entries(d.entries || {})){
+        if (!/^[A-Za-z0-9_-]{1,64}$/.test(k) || !v || !TYPE_LABEL[v.type] || !/^\d{4}-\d{2}-\d{2}$/.test(v.date)) continue;
+        const e = {type:v.type, date:v.date};
+        NUM.forEach(f => { if (v[f] != null && isFinite(+v[f])) e[f] = +v[f]; });
+        STR.forEach(f => { if (v[f] != null) e[f] = String(v[f]).slice(0, 500); });
+        BOOL.forEach(f => { if (v[f] != null) e[f] = !!v[f]; });
+        if (e.followUp && !/^\d{4}-\d{2}-\d{2}$/.test(e.followUp)) delete e.followUp;
+        if (Array.isArray(v.items)) e.items = v.items.slice(0, 50).map(i => ({category:String(i?.category||"Other").slice(0,60), brand:String(i?.brand||"").slice(0,60),
+          model:String(i?.model||"").slice(0,60), qty:Math.max(0, Math.floor(+i?.qty||0)), price:isFinite(+i?.price) ? +i.price : 0}));
+        data.entries[k] = e; n++;
+      }
+      const g = d.settings?.goals;
+      if (g && typeof g === "object") data.settings.goals = {weeklySales:+g.weeklySales||0, weeklyApps:+g.weeklyApps||0, weeklyPackdowns:+g.weeklyPackdowns||0, ppAttach:+g.ppAttach||0};
+      persist(); return n; }
   };
 }
 
