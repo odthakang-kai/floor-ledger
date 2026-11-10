@@ -1,0 +1,1012 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#232527">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ledger">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Floor Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap">
+<style>
+/* Layout: charcoal scoreboard band (hero total + pace line) over a light work floor of tiles, rings, tape meters and charts; fixed log dock at the bottom. Colors follow the Fridge Picks / Floor Copilot theme: charcoal bands, white surfaces, orange for action and the current place. */
+:root{
+  --paper:#F1F2F3; --card:#FFFFFF; --sunk:#E9EBED; --ink:#1E2124; --muted:#5E656C; --line:#D9DCE0; --line-2:#C4C9CE;
+  --band:#232527; --band-2:#2E3134; --band-ink:#FFFFFF; --band-muted:#A9AFB5;
+  --signal:#F96302; --signal-ink:#FFFFFF; --signal-soft:#FFF1E7; --signal-deep:#C94F00; --signal-hot:#FF8A3D;
+  --blue:#2F6A8F; --blue-soft:#E3EEF5;
+  --good:#0B7A3B; --good-bg:#E4F3EA; --warn:#A64E00; --warn-bg:#FCEFE2; --bad:#BE1E2D; --bad-bg:#FBE6E8;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --num:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+  --r-s:5px; --r:8px; --r-l:12px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#131416; --card:#1C1E21; --sunk:#26292D; --ink:#ECEEF0; --muted:#A0A7AE; --line:#30343A; --line-2:#444A51;
+  --band:#0C0D0E; --band-2:#1C1E21; --band-muted:#8E959C;
+  --signal:#FF7419; --signal-soft:#36210F; --signal-deep:#FF9A55; --signal-hot:#FFA060; --blue:#86B8D8; --blue-soft:#1A2A35;
+  --good:#53C985; --good-bg:#10281B; --warn:#F2A55E; --warn-bg:#2E1F10; --bad:#FF7E89; --bad-bg:#3A171C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#131416; --card:#1C1E21; --sunk:#26292D; --ink:#ECEEF0; --muted:#A0A7AE; --line:#30343A; --line-2:#444A51;
+  --band:#0C0D0E; --band-2:#1C1E21; --band-muted:#8E959C;
+  --signal:#FF7419; --signal-soft:#36210F; --signal-deep:#FF9A55; --signal-hot:#FFA060; --blue:#86B8D8; --blue-soft:#1A2A35;
+  --good:#53C985; --good-bg:#10281B; --warn:#F2A55E; --warn-bg:#2E1F10; --bad:#FF7E89; --bad-bg:#3A171C; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{color-scheme:light;-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{margin:0;padding-top:env(safe-area-inset-top,0px);-webkit-tap-highlight-color:transparent}
+.installbar{position:fixed;left:8px;right:8px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--band);color:#fff;border:1px solid rgb(255 255 255/.15);border-radius:var(--r-s);padding:10px 12px;display:flex;gap:10px;align-items:center;font-size:14px;box-shadow:0 4px 16px rgb(0 0 0/.3)}
+.installbar span{flex:1}.installbar .link{color:#fff}
+.backup{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;font-size:13.5px}
+.backup .bt{display:flex;gap:6px;flex-wrap:wrap}
+.backup.stale{border-left:5px solid var(--signal)}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--band)}
+.gut{max-width:1000px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{margin:0;text-wrap:balance;font-weight:800;letter-spacing:-.02em}
+h2{font-size:19px}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums;letter-spacing:0}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.cap{font-size:13px;font-weight:650;color:var(--muted)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+
+/* ---------- scoreboard band ---------- */
+.band{background:var(--band);color:var(--band-ink);border-bottom:4px solid var(--signal);position:relative;overflow:hidden}
+.band::after{content:"";position:absolute;inset:auto -10% -60% 40%;height:120%;background:radial-gradient(closest-side,rgb(249 99 2/.28),transparent);pointer-events:none;animation:glow 7s ease-in-out infinite alternate}
+@keyframes glow{from{transform:translateX(-8%)}to{transform:translateX(8%) scale(1.1)}}
+.band .gut{position:relative;z-index:1;padding-block:14px 18px;display:flex;flex-direction:column;gap:14px}
+.brandrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo i{width:26px;height:26px;background:var(--signal);border-radius:4px;position:relative;display:block}
+.logo i::after{content:"";position:absolute;left:5px;right:5px;bottom:6px;height:3px;background:var(--band);box-shadow:0 -6px 0 var(--band),0 -12px 0 var(--band)}
+.logo b{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.logo small{display:block;font-size:12.5px;font-weight:650;color:var(--signal)}
+.seg{display:inline-flex;border:1px solid rgb(255 255 255/.22);border-radius:var(--r-s);overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--band-muted);padding:8px 13px;font-size:13.5px;font-weight:700}
+.seg button[aria-pressed="true"]{background:var(--signal);color:var(--signal-ink)}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:18px;align-items:end}
+@media (max-width:700px){.hero{grid-template-columns:minmax(0,1fr)}}
+.hero .lbl{font-size:13.5px;font-weight:650;color:var(--band-muted)}
+.hero .big{font-size:clamp(58px,15vw,96px);line-height:.88;font-weight:800;display:block;margin:4px 0 8px}
+.hero .big .cents{font-size:.42em;vertical-align:.95em;margin-left:2px;color:var(--band-muted)}
+.hero .sub{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px;color:var(--band-muted)}
+.hero .sub b{color:#fff}
+.dl{font-family:var(--mono);font-size:12px;font-weight:700;padding:3px 7px;border-radius:4px;background:rgb(255 255 255/.1)}
+.dl.up{background:#0B7A3B;color:#fff}.dl.down{background:#BE1E2D;color:#fff}
+.pace{background:rgb(255 255 255/.05);border:1px solid rgb(255 255 255/.1);border-radius:var(--r);padding:10px 10px 4px}
+.pace svg{display:block;width:100%;height:auto}
+.pace text{fill:var(--band-muted);font-family:var(--mono);font-size:10px}
+.pace .key{display:flex;gap:14px;font-size:12px;color:var(--band-muted);padding:2px 2px 6px}
+.pace .key i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px;background:var(--signal)}
+.pace .key i.prev{background:none;border-top:2px dashed var(--band-muted);height:0}
+.draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.4s cubic-bezier(.3,.7,.2,1) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.fadein{opacity:0;animation:fade .9s .5s forwards}
+@keyframes fade{to{opacity:1}}
+.dot-live{animation:pulse 1.6s ease-out infinite;transform-origin:center;transform-box:fill-box}
+@keyframes pulse{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(3.2)}}
+
+/* ---------- main ---------- */
+main.gut{padding-block:16px 130px;display:flex;flex-direction:column;gap:20px}
+.banner{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;border-radius:var(--r-s);padding:10px 12px;font-size:14px}
+.banner.ex{border:1px dashed var(--line-2);color:var(--muted)}
+.banner.due{background:var(--signal-soft);border-left:5px solid var(--signal)}
+.banner.due b{color:var(--signal-deep)}
+.status{font-size:13px;color:var(--muted)}
+
+.tabs{display:flex;gap:6px;overflow-x:auto}
+.tabs button{border:1px solid var(--line-2);background:var(--card);border-radius:var(--r-s);padding:9px 14px;font-weight:700;font-size:14px;white-space:nowrap;min-height:42px}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.tabs .ct{font-family:var(--mono);font-size:11px;background:var(--signal);color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:700px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:2px;min-width:0;position:relative;overflow:hidden;
+  opacity:0;transform:translateY(8px);animation:rise .5s cubic-bezier(.2,.8,.2,1) forwards}
+.kpi:nth-child(2){animation-delay:.05s}.kpi:nth-child(3){animation-delay:.1s}.kpi:nth-child(4){animation-delay:.15s}
+.kpi:nth-child(5){animation-delay:.2s}.kpi:nth-child(6){animation-delay:.25s}.kpi:nth-child(7){animation-delay:.3s}.kpi:nth-child(8){animation-delay:.35s}
+@keyframes rise{to{opacity:1;transform:none}}
+.kpi .v{font-size:38px;line-height:1;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.kpi .f{font-size:12.5px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.kpi.hot{background:var(--signal);border-color:var(--signal);color:var(--signal-ink)}
+.kpi.hot .cap,.kpi.hot .f{color:rgb(255 255 255/.85)}
+.kpi.dark{background:var(--band);border-color:var(--band);color:#fff}
+.kpi.dark .cap,.kpi.dark .f{color:var(--band-muted)}
+.kpi .dl{background:var(--sunk);color:var(--muted)}
+.kpi .dl.up{background:var(--good-bg);color:var(--good)}.kpi .dl.down{background:var(--bad-bg);color:var(--bad)}
+.kpi.hot .dl,.kpi.dark .dl{background:rgb(0 0 0/.18);color:#fff}
+
+.rings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:700px){.rings{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ring{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;align-items:center}
+.ring svg{width:70px;height:70px;transform:rotate(-90deg)}
+.ring .trk{fill:none;stroke:var(--sunk);stroke-width:9}
+.ring .arc{fill:none;stroke:var(--signal);stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1)}
+.ring .arc.b{stroke:var(--ink)}
+.ring .arc.g{stroke:var(--good)}
+.ring .rv{font-size:30px;font-weight:800;line-height:1}
+.ring .rs{font-size:12px;color:var(--muted)}
+
+.grid2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px}
+@media (max-width:780px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.panel{display:flex;flex-direction:column;gap:10px;min-width:0}
+.ph{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.link{border:0;background:none;color:var(--blue);font-weight:700;font-size:13.5px;padding:4px 0}
+.box{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+
+/* tape-measure goal meters (from the Fridge Picks fit bar) */
+.goals{display:flex;flex-direction:column;gap:16px}
+.goal{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:baseline}
+.goal .n{font-weight:750;font-size:14.5px}
+.goal .of{font-family:var(--num);font-size:18px;font-weight:700}
+.goal .of small{font-size:14px;color:var(--muted);font-weight:600}
+.tape{grid-column:1/-1;position:relative;height:18px;border-radius:2px;background:#3A3D40;box-shadow:inset 0 0 0 1px rgb(0 0 0/.35);overflow:hidden}
+.tape span{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,var(--signal-deep),var(--signal) 70%,var(--signal-hot));transition:width 1.2s cubic-bezier(.2,.8,.2,1);box-shadow:1px 0 0 #fff}
+.tape.done span{background:linear-gradient(90deg,#0B7A3B,#2BAA5E)}
+.tape.done span::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgb(255 255 255/.45) 50%,transparent 70%);background-size:200% 100%;animation:shine 2.2s linear infinite}
+@keyframes shine{from{background-position:150% 0}to{background-position:-50% 0}}
+.tape::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:repeating-linear-gradient(90deg,rgb(20 20 20/.6) 0 1px,transparent 1px 32px),repeating-linear-gradient(90deg,rgb(20 20 20/.35) 0 1px,transparent 1px 8px);
+  background-size:auto 70%,auto 38%;background-repeat:repeat-x}
+.goal .p{grid-column:1/-1;font-size:12.5px;color:var(--muted)}
+.goal .p b{color:var(--signal-deep)}
+
+.chart svg{display:block;width:100%;height:auto}
+.chart text{fill:var(--muted);font-family:var(--mono);font-size:10px}
+.chart .gl{stroke:var(--line);stroke-width:1}
+.grow{transform-box:fill-box;transform-origin:bottom;animation:grow .7s cubic-bezier(.2,.8,.2,1) both}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.mix{display:flex;flex-direction:column;gap:10px}
+.mrow{display:grid;grid-template-columns:118px minmax(0,1fr) 74px;gap:8px;align-items:center;font-size:13.5px;font-weight:600}
+.mrow .bar{height:14px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.mrow .bar i{display:block;height:100%;background:var(--ink);border-radius:3px;transform-origin:left;animation:growx .8s cubic-bezier(.2,.8,.2,1) both}
+.mrow:first-child .bar i{background:var(--signal)}
+.mrow .amt{text-align:right;font-family:var(--num);font-size:17px;font-weight:700}
+@keyframes growx{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.mrow small{display:block;font-size:11.5px;color:var(--muted);font-weight:500}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.stat{background:var(--card);padding:10px 12px;display:flex;flex-direction:column;gap:1px}
+.stat .v{font-size:24px;font-weight:700}
+.stat .s{font-size:12px;color:var(--muted)}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+
+/* lists */
+.list{display:flex;flex-direction:column;gap:8px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:11px 12px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:start}
+.tag{font-size:12px;font-weight:700;padding:3px 7px;border-radius:4px;background:var(--sunk);color:var(--muted);min-width:68px;text-align:center}
+.tag.sale{background:var(--signal);color:#fff}
+.tag.credit{background:var(--ink);color:var(--card)}
+.tag.lead{background:var(--blue-soft);color:var(--blue)}
+.row .main{min-width:0}
+.row .t{font-weight:700;overflow-wrap:anywhere}
+.row .m{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.row .items{margin:4px 0 0;padding:0;list-style:none;font-size:13px}
+.row .items li{display:flex;justify-content:space-between;gap:8px;border-top:1px dashed var(--line);padding:3px 0}
+.row .r{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.row .amt{font-family:var(--num);font-size:22px;font-weight:800}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 7px;border-radius:4px;background:var(--sunk);color:var(--muted);margin:1px 2px 1px 0}
+.pill.ok{background:var(--good-bg);color:var(--good)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.due{background:var(--signal-soft);color:var(--signal-deep)}.pill.ex{border:1px dashed var(--line-2);background:transparent}
+.acts{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.bs{border:1px solid var(--line-2);background:var(--card);border-radius:var(--r-s);padding:5px 10px;font-size:12.5px;font-weight:650;min-height:32px}
+.bs.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.bs.danger{color:var(--bad)}
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.search{width:100%;background:var(--card);border:1px solid var(--line-2);border-radius:var(--r-s);padding:10px 12px;min-height:44px}
+.dh{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;padding:10px 2px 0;font-weight:600}
+
+/* dock */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--line);
+  padding:8px max(10px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px))}
+.dock .in{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1.35fr repeat(5,minmax(0,1fr));gap:6px}
+.dock button{border:1px solid var(--line-2);border-radius:var(--r-s);background:var(--card);padding:6px 2px;display:flex;flex-direction:column;align-items:center;font-size:12px;font-weight:700;min-height:50px;justify-content:center;transition:transform .1s}
+.dock button:active{transform:scale(.95)}
+.dock button b{font-family:var(--num);font-size:22px;line-height:.9;color:var(--signal)}
+.dock button.go{background:var(--signal);border-color:var(--signal);color:#fff}
+.dock button.go b{color:#fff}
+
+/* sheet */
+dialog{border:0;padding:0;background:var(--card);color:var(--ink);border-radius:var(--r-l);width:min(560px,calc(100vw - 20px));max-height:calc(100dvh - 24px)}
+dialog::backdrop{background:rgb(10 12 14/.6)}
+dialog[open]{animation:pop .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes pop{from{opacity:0;transform:translateY(18px) scale(.98)}}
+.sh-head{background:var(--band);color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:3px solid var(--signal);position:sticky;top:0;z-index:2}
+.sh-head h2{font-size:19px}
+.sh-head .tot{font-family:var(--num);font-size:30px;font-weight:800;color:var(--signal-hot)}
+.sheet{display:flex;flex-direction:column;gap:14px;padding:16px 18px 18px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field.full{grid-column:1/-1}
+.field label,.lbl{font-size:13px;font-weight:650;color:var(--muted)}
+.field input,.field select,.field textarea,.li input,.li select{background:var(--card);border:1px solid var(--line-2);border-radius:var(--r-s);padding:9px 10px;width:100%;min-width:0;min-height:44px}
+.field input:focus,.li input:focus,.li select:focus,.field select:focus,.field textarea:focus{border-color:var(--ink);outline:none;box-shadow:0 0 0 1px var(--ink)}
+.field textarea{min-height:64px;resize:vertical}
+.items-ed{display:flex;flex-direction:column;gap:10px}
+.li{border:1px solid var(--line);border-left:5px solid var(--signal);border-radius:var(--r-s);padding:10px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 34px;gap:8px;animation:pop .25s}
+.li .l2{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.2fr) 128px minmax(0,1fr);gap:8px}
+@media (max-width:440px){.li .l2{grid-template-columns:minmax(0,1fr) 120px}.li .l2 .model{grid-column:1/-1}}
+.li .x{border:0;background:var(--sunk);border-radius:var(--r-s);font-size:18px;font-weight:700;color:var(--muted)}
+.li .sub{grid-column:1/-1;font-size:12.5px;color:var(--muted);text-align:right}
+.li .sub b{color:var(--ink);font-family:var(--num);font-size:16px}
+.add{border:1px dashed var(--signal);background:var(--signal-soft);color:var(--signal-deep);border-radius:var(--r-s);padding:10px;font-weight:750;min-height:44px}
+.toggles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:440px){.toggles{grid-template-columns:1fr}}
+.tg{display:flex;align-items:center;gap:10px;border:1px solid var(--line-2);border-radius:var(--r-s);padding:10px 12px;font-size:14px;font-weight:650;min-height:46px;cursor:pointer}
+.tg input{width:20px;height:20px;accent-color:var(--signal);margin:0}
+.tg:has(input:checked){border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.stepper{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;border:1px solid var(--line-2);border-radius:var(--r-s);overflow:hidden;min-height:44px}
+.stepper button{border:0;background:var(--sunk);font-size:20px;font-weight:700}
+.stepper input{border:0!important;box-shadow:none!important;text-align:center;font-family:var(--num);font-size:20px;font-weight:700;min-height:0!important;padding:4px!important}
+.foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.btn{border:0;border-radius:var(--r-s);padding:10px 18px;font-weight:700;min-height:46px;background:var(--sunk)}
+.btn.go{background:var(--signal);color:#fff}
+.btn.go:active{background:var(--signal-deep)}
+.btn.ghost{background:var(--card);border:1px solid var(--line-2)}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid var(--line-2)}
+.err{color:var(--bad);font-size:13.5px;font-weight:600}
+
+.toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--card);padding:10px 16px;border-radius:var(--r-s);font-weight:650;font-size:14px;z-index:40;max-width:calc(100vw - 32px);box-shadow:0 6px 24px rgb(0 0 0/.25);animation:pop .25s}
+.toast b{color:var(--signal-hot);font-family:var(--num);font-size:19px;margin-left:4px}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:35;width:100%;height:100%}
+@media (max-width:440px){.fields{grid-template-columns:1fr}.mrow{grid-template-columns:92px minmax(0,1fr) 66px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.kpi{opacity:1;transform:none}.draw{stroke-dashoffset:0}.fadein{opacity:1}}
+</style>
+</head>
+<body>
+<header class="band">
+  <div class="gut">
+    <div class="brandrow">
+      <div class="logo"><i aria-hidden="true"></i><div><b>Floor Ledger</b><small>Appliance associate</small></div></div>
+      <div class="seg" role="group" aria-label="Time range" id="rangeSeg">
+        <button data-r="today" aria-pressed="false">Today</button>
+        <button data-r="week" aria-pressed="true">Week</button>
+        <button data-r="month" aria-pressed="false">Month</button>
+        <button data-r="all" aria-pressed="false">All</button>
+      </div>
+    </div>
+    <div class="hero">
+      <div>
+        <div class="lbl" id="heroLbl">Sales this week</div>
+        <span class="big num" id="heroBig">$0</span>
+        <div class="sub" id="heroSub">Loading your numbers…</div>
+      </div>
+      <div class="pace" id="pace" aria-label="Running total compared with the previous period"></div>
+    </div>
+  </div>
+</header>
+
+<main class="gut">
+  <div id="status" class="status" hidden></div>
+  <div id="exampleNote" class="banner ex" hidden>
+    <span>These are example entries so you can see how it works. Your own entries stay when you clear them.</span>
+    <button class="bs danger" id="clearExamples">Clear examples</button>
+  </div>
+  <div id="startNote" class="banner ex" hidden>
+    <span>Nothing logged yet. Log your first sale with the orange button, or load a week of example data to see every chart filled in.</span>
+    <button class="bs" id="loadExamples">Load examples</button>
+  </div>
+  <div id="dueNotice" class="banner due" hidden></div>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="numbers" aria-selected="true">Numbers</button>
+    <button role="tab" data-tab="leads" aria-selected="false">Leads<span class="ct" id="leadCount">0</span></button>
+    <button role="tab" data-tab="log" aria-selected="false">History</button>
+  </nav>
+
+  <section id="tab-numbers" class="panel" style="gap:20px">
+    <div class="kpis" id="kpis"></div>
+    <div class="panel">
+      <div class="ph"><h2>Attach rates</h2><span class="cap" id="ringLbl"></span></div>
+      <div class="rings" id="rings"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="ph"><h2>Sales, last 14 days</h2><span class="cap" id="chartTotal"></span></div>
+        <div class="box chart" id="chart"></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h2>This week's goals</h2><button class="link" id="editGoals">Edit goals</button></div>
+        <div class="box goals" id="goals"></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="ph"><h2>Sales by category</h2><span class="cap" id="mixLbl"></span></div>
+        <div class="box mix" id="mix"></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h2>Deeper cuts</h2></div>
+        <div class="stats" id="stats"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-leads" class="panel" hidden>
+    <div class="ph"><h2>Lead pipeline</h2><span class="cap" id="pipeVal"></span></div>
+    <div class="filters" id="leadFilters">
+      <button class="bs on" data-f="open">Open</button>
+      <button class="bs" data-f="due">Follow-up due</button>
+      <button class="bs" data-f="won">Won</button>
+      <button class="bs" data-f="lost">Lost</button>
+      <button class="bs" data-f="all">All</button>
+    </div>
+    <div class="list" id="leadList"></div>
+  </section>
+
+  <section id="tab-log" class="panel" hidden>
+    <div class="ph"><h2>History</h2><button class="link" id="exportCsv">Export CSV</button></div>
+    <div class="backup" id="backupBox">
+      <span id="backupTxt">Your entries are saved on this phone only. Save a backup file now and then.</span>
+      <span class="bt"><button class="bs" id="backupBtn">Save backup</button><button class="bs" id="restoreBtn">Restore</button></span>
+      <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+    </div>
+    <input class="search" id="logSearch" type="search" placeholder="Search order #, customer, brand, model" aria-label="Search history">
+    <div class="filters" id="logFilters">
+      <button class="bs on" data-f="all">All</button>
+      <button class="bs" data-f="sale">Sales</button>
+      <button class="bs" data-f="credit">Card apps</button>
+      <button class="bs" data-f="packdown">Packdowns</button>
+      <button class="bs" data-f="shift">Shifts</button>
+      <button class="bs" data-f="kudos">Shout-outs</button>
+    </div>
+    <div class="list" id="logList"></div>
+  </section>
+</main>
+
+<div class="dock" role="toolbar" aria-label="Log something">
+  <div class="in">
+    <button class="go" data-new="sale"><b>+</b>Sale</button>
+    <button data-new="credit"><b>+</b>Card app</button>
+    <button data-new="lead"><b>+</b>Lead</button>
+    <button id="pdBtn" aria-label="Add one packdown for today"><b>+1</b><span id="pdLbl">Packdown</span></button>
+    <button data-new="shift"><b>+</b>Hours</button>
+    <button data-new="kudos"><b>+</b>Shout-out</button>
+  </div>
+</div>
+
+<dialog id="sheet"><form id="sheetForm" novalidate></form></dialog>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+const CATS = ["Refrigerator","Washer","Dryer","Range","Cooktop","Wall oven","Dishwasher","Microwave","Range hood","Freezer","Beverage / wine cooler","Accessory / parts","Other"];
+const CREDIT_KINDS = ["Consumer card","Project loan","Commercial / Pro card"];
+const LEAD_STATUS = ["New","Follow-up","Quoted","Won","Lost"];
+const OPEN = new Set(["New","Follow-up","Quoted"]);
+const TYPE_LABEL = {sale:"Sale",credit:"Card app",lead:"Lead",packdown:"Packdown",shift:"Shift",kudos:"Shout-out"};
+const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const state = {entries:[], goals:{weeklySales:15000, weeklyApps:3, weeklyPackdowns:20, ppAttach:30}, range:"week", tab:"numbers", leadF:"open", logF:"all", q:"", loaded:false, db:null, dl:null, sig:""};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = (n, d=0) => "$" + (Number(n)||0).toLocaleString("en-US",{minimumFractionDigits:d, maximumFractionDigits:d});
+const pct = n => isFinite(n) ? Math.round(n*100) + "%" : "–";
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const today = () => ymd(new Date());
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate()+n); return ymd(d); };
+const fmtDay = s => parse(s).toLocaleDateString("en-US",{weekday:"short", month:"short", day:"numeric"});
+const weekStart = s => { const d = parse(s); d.setDate(d.getDate()-((d.getDay()+6)%7)); return ymd(d); };
+
+/* Older sales were one category per entry; newer ones carry an items list. */
+const itemsOf = e => Array.isArray(e.items) && e.items.length ? e.items : [{category:e.category||"Other", brand:e.brand||"", model:"", qty:+e.units||1, price:(+e.amount||0)/(+e.units||1)}];
+const unitsOf = e => itemsOf(e).reduce((a,i) => a + (+i.qty||0), 0);
+
+function rangeBounds(r){
+  const t = today();
+  if (r === "today") return {start:t, end:t, prev:{start:addDays(t,-1), end:addDays(t,-1)}, label:"Today", long:fmtDay(t), cmp:"yesterday",
+    days: Array.from({length:7}, (_,i) => addDays(t, i-6)), shift:-7, paceLbl:"Last 7 days"};
+  if (r === "week"){ const s = weekStart(t); return {start:s, end:t, prev:{start:addDays(s,-7), end:addDays(t,-7)}, label:"This week", long:"Week of "+fmtDay(s), cmp:"last week",
+    days: Array.from({length:7}, (_,i) => addDays(s,i)), shift:-7, paceLbl:"Mon to Sun"}; }
+  if (r === "month"){ const d = parse(t); const s = ymd(new Date(d.getFullYear(), d.getMonth(), 1)); const n = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+    const pd = new Date(d.getFullYear(), d.getMonth()-1, 1); const pn = new Date(d.getFullYear(), d.getMonth(), 0).getDate();
+    const pe = new Date(d.getFullYear(), d.getMonth()-1, Math.min(d.getDate(), pn));
+    return {start:s, end:t, prev:{start:ymd(pd), end:ymd(pe)}, label:"This month", long:d.toLocaleDateString("en-US",{month:"long", year:"numeric"}), cmp:"last month",
+      days: Array.from({length:n}, (_,i) => addDays(s,i)), prevDays: Array.from({length:pn}, (_,i) => ymd(new Date(pd.getFullYear(), pd.getMonth(), i+1))), paceLbl:"Day of month"}; }
+  return {start:"0000-01-01", end:"9999-12-31", prev:null, label:"All time", long:"All time", cmp:"", days: Array.from({length:30}, (_,i) => addDays(t, i-29)), shift:-30, paceLbl:"Last 30 days"};
+}
+const inRange = (e, b) => e.date >= b.start && e.date <= b.end;
+
+function compute(b){
+  const E = state.entries.filter(e => inRange(e, b));
+  const sales = E.filter(e => e.type === "sale");
+  const total = sales.reduce((a,e) => a + (+e.amount||0), 0);
+  const tickets = sales.length;
+  const units = sales.reduce((a,e) => a + unitsOf(e), 0);
+  const pp = sales.filter(e => e.protection);
+  const ppRev = pp.reduce((a,e) => a + (+e.ppAmount||0), 0);
+  const inst = sales.filter(e => e.install).length, haul = sales.filter(e => e.haulAway).length;
+  const shiftsE = E.filter(e => e.type === "shift");
+  const hours = shiftsE.reduce((a,e) => a + (+e.hours||0), 0);
+  const apps = E.filter(e => e.type === "credit");
+  const approved = apps.filter(e => e.result === "Approved").length;
+  const decided = apps.filter(e => e.result !== "Pending").length;
+  const pack = E.filter(e => e.type === "packdown").reduce((a,e) => a + (+e.count||0), 0);
+  const leads = E.filter(e => e.type === "lead");
+  const won = leads.filter(e => e.status === "Won").length;
+  const closed = leads.filter(e => e.status === "Won" || e.status === "Lost").length;
+  const byDay = {}; sales.forEach(e => byDay[e.date] = (byDay[e.date]||0) + (+e.amount||0));
+  const best = Object.entries(byDay).sort((a,b) => b[1]-a[1])[0];
+  const biggest = sales.reduce((m,e) => (+e.amount||0) > (m ? +m.amount : -1) ? e : m, null);
+  const byCat = {}; sales.forEach(e => itemsOf(e).forEach(i => { const c = i.category||"Other"; byCat[c] = byCat[c] || {amt:0, qty:0}; byCat[c].amt += (+i.price||0)*(+i.qty||0); byCat[c].qty += +i.qty||0; }));
+  const multi = sales.filter(e => unitsOf(e) > 1).length;
+  return {total, tickets, units, avg: tickets ? total/tickets : NaN, upt: tickets ? units/tickets : NaN, ppRate: tickets ? pp.length/tickets : NaN, ppCount:pp.length, ppRev,
+    instRate: tickets ? inst/tickets : NaN, inst, haulRate: tickets ? haul/tickets : NaN, haul, hours, shifts:shiftsE.length, perHour: hours ? total/hours : NaN,
+    apps: apps.length, approved, approvalRate: decided ? approved/decided : NaN, appsPer10: tickets ? apps.length/tickets*10 : NaN,
+    pack, packPerHour: hours ? pack/hours : NaN, leads: leads.length, won, closeRate: closed ? won/closed : NaN, kudos: E.filter(e => e.type==="kudos").length,
+    fromLead: sales.filter(e => e.leadId).length, onCard: sales.filter(e => e.onCard).length, special: sales.filter(e => e.special).length, multi,
+    best, biggest, byCat, days: Object.keys(byDay).length};
+}
+
+function dl(cur, prev, cls=""){
+  if (prev == null || !isFinite(prev) || !isFinite(cur)) return "";
+  if (prev === 0) return cur > 0 ? `<span class="dl up ${cls}">new</span>` : "";
+  const d = (cur - prev) / prev;
+  return `<span class="dl ${d >= 0 ? "up" : "down"} ${cls}">${d >= 0 ? "▲" : "▼"} ${Math.abs(Math.round(d*100))}%</span>`;
+}
+
+/* count-up: animates from the value last shown in this element */
+function countTo(el, to, fmt){
+  if (!el) return;
+  const from = +(el.dataset.v || 0); el.dataset.v = to;
+  if (RM || !isFinite(to) || !isFinite(from) || from === to){ el.innerHTML = fmt(to); return; }
+  const t0 = performance.now(), dur = 900;
+  const step = now => { const k = Math.min(1, (now-t0)/dur), e = 1 - Math.pow(1-k, 3); el.innerHTML = fmt(from + (to-from)*e); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+/* ---------- render ---------- */
+function render(){
+  const b = rangeBounds(state.range);
+  document.querySelectorAll("#rangeSeg button").forEach(x => x.setAttribute("aria-pressed", x.dataset.r === state.range));
+  $("#exampleNote").hidden = !state.entries.some(e => e.example);
+  $("#startNote").hidden = !(state.loaded && !state.entries.length);
+  renderBackup();
+  const c = compute(b), p = b.prev ? compute(b.prev) : null;
+
+  // hero
+  $("#heroLbl").textContent = state.range === "all" ? "Sales, all time" : `Sales · ${b.long}`;
+  countTo($("#heroBig"), c.total, v => { const s = Math.round(v); return "$" + s.toLocaleString("en-US"); });
+  $("#heroSub").innerHTML = state.loaded ? `${dl(c.total, p?.total)}${p ? ` vs ${b.cmp} (${money(p.total)})` : ""} <span>·</span> <b>${c.tickets}</b> ticket${c.tickets===1?"":"s"} <span>·</span> <b>${c.units}</b> units` : "Loading your numbers…";
+  renderPace(b);
+
+  // follow-ups
+  const t = today();
+  const due = state.entries.filter(e => e.type === "lead" && OPEN.has(e.status) && e.followUp && e.followUp <= t);
+  const dn = $("#dueNotice");
+  if (due.length){ dn.hidden = false; dn.innerHTML = `<span><b>${due.length} follow-up${due.length>1?"s":""} due:</b> ${due.slice(0,3).map(e => esc(e.name || "Customer")).join(", ")}${due.length>3?" and more":""}</span><button class="bs" id="goDue">Open leads</button>`;
+    $("#goDue").onclick = () => { state.leadF = "due"; setTab("leads"); }; } else dn.hidden = true;
+  $("#leadCount").textContent = state.entries.filter(e => e.type === "lead" && OPEN.has(e.status)).length;
+
+  // KPI tiles (built once, values count up)
+  const K = [
+    {id:"avg", cls:"hot", label:"Avg ticket", v:c.avg, f:v => isFinite(v) ? money(v) : "–", foot:`${dl(c.avg, p?.avg)} ${isFinite(c.upt) ? c.upt.toFixed(1)+" units / ticket" : "No tickets yet"}`},
+    {id:"ph", cls:"dark", label:"Sales / hour", v:c.perHour, f:v => isFinite(v) ? money(v) : "–", foot: c.hours ? `${c.hours} hrs logged` : "Log hours to see this"},
+    {id:"apps", label:"Card apps", v:c.apps, f:v => Math.round(v), foot:`${dl(c.apps, p?.apps)} ${c.approved} approved · ${pct(c.approvalRate)}`},
+    {id:"pack", label:"Packdowns", v:c.pack, f:v => Math.round(v), foot:`${dl(c.pack, p?.pack)} ${isFinite(c.packPerHour) ? c.packPerHour.toFixed(1)+" / hr" : ""}`},
+    {id:"pp", label:"Protection $", v:c.ppRev, f:v => money(v), foot:`${c.ppCount} plan${c.ppCount===1?"":"s"} sold`},
+    {id:"per10", label:"Apps per 10 sales", v:c.appsPer10, f:v => isFinite(v) ? v.toFixed(1) : "–", foot:`${c.tickets} tickets`},
+    {id:"close", label:"Lead close rate", v:isFinite(c.closeRate) ? c.closeRate*100 : NaN, f:v => isFinite(v) ? Math.round(v)+"%" : "–", foot:`${c.won} won of ${c.leads} new`},
+    {id:"multi", label:"Multi-unit orders", v:c.multi, f:v => Math.round(v), foot: c.tickets ? `${pct(c.multi/c.tickets)} of tickets` : "–"},
+  ];
+  const kp = $("#kpis");
+  if (!kp.children.length) kp.innerHTML = K.map(k => `<div class="kpi ${k.cls||""}"><span class="cap">${k.label}</span><span class="v num" id="k_${k.id}">–</span><span class="f" id="kf_${k.id}"></span></div>`).join("");
+  K.forEach(k => { countTo($("#k_"+k.id), isFinite(k.v) ? k.v : NaN, k.f); $("#kf_"+k.id).innerHTML = k.foot; });
+
+  // rings
+  $("#ringLbl").textContent = b.long;
+  const R = [
+    {id:"pp", label:"Protection plan", v:c.ppRate, s:`${c.ppCount} of ${c.tickets}`, cls:""},
+    {id:"in", label:"Install", v:c.instRate, s:`${c.inst} of ${c.tickets}`, cls:"b"},
+    {id:"ha", label:"Haul-away", v:c.haulRate, s:`${c.haul} of ${c.tickets}`, cls:"b"},
+    {id:"ap", label:"Card approval", v:c.approvalRate, s:`${c.approved} approved`, cls:"g"},
+  ];
+  const rg = $("#rings"), C = 2*Math.PI*30;
+  if (!rg.children.length) rg.innerHTML = R.map(r => `<div class="ring"><svg viewBox="0 0 70 70" aria-hidden="true"><circle class="trk" cx="35" cy="35" r="30"/><circle class="arc ${r.cls}" id="ra_${r.id}" cx="35" cy="35" r="30" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></svg><div><div class="cap">${r.label}</div><div class="rv num" id="rv_${r.id}">–</div><div class="rs" id="rs_${r.id}"></div></div></div>`).join("");
+  R.forEach(r => { const v = isFinite(r.v) ? r.v : 0; requestAnimationFrame(() => $("#ra_"+r.id).style.strokeDashoffset = C*(1-v));
+    countTo($("#rv_"+r.id), isFinite(r.v) ? r.v*100 : NaN, x => isFinite(x) ? Math.round(x)+"%" : "–"); $("#rs_"+r.id).textContent = r.s; });
+
+  // data-heavy blocks rebuild only when data or range changes, so their entrance animations do not replay on every tap
+  const sig = state.range + "|" + state.entries.length + "|" + state.entries.map(e => e.id + (e.amount||e.count||e.hours||e.status||"")).join(",") + JSON.stringify(state.goals);
+  if (sig !== state.sig){ state.sig = sig; renderChart(); renderMix(c, b); renderStats(c); }
+  renderGoals();
+  renderLeads(); renderLog();
+  const pd = packToday(); $("#pdLbl").textContent = pd ? `${pd} today` : "Packdown";
+}
+
+/* One tap = one packdown on today's tally (one document per day). Taps queue so fast tapping never loses a count. */
+const pdId = () => "pd-" + today();
+const packToday = () => state.entries.filter(e => e.type==="packdown" && e.date===today() && !e.example).reduce((a,e)=>a+(+e.count||0),0);
+let pdPending = 0, pdBusy = false;
+async function addPackdown(){
+  if (!state.db){ toast("Can't save right now. This browser is blocking storage."); return; }
+  pdPending++;
+  const btn = $("#pdBtn"); btn.style.transform = "scale(.9)"; setTimeout(() => btn.style.transform = "", 120);
+  $("#pdLbl").textContent = `${packToday() + pdPending} today`;
+  if (pdBusy) return; pdBusy = true;
+  while (pdPending){
+    const n = pdPending; pdPending = 0;
+    const doc = state.entries.find(e => e.id === pdId());
+    const count = (doc ? +doc.count||0 : 0) + n;
+    try {
+      await state.db.collection("entries").doc(pdId()).set({type:"packdown", date:today(), count, notes: doc?.notes||"", ts: doc?.ts || Date.now()});
+      if (doc) doc.count = count; else state.entries.push({id:pdId(), type:"packdown", date:today(), count, ts:Date.now()});
+      toast(`Packdown +${n}<b>${packToday()} today</b>`);
+    } catch(_){ toast("Couldn't add that packdown. Tap again."); }
+  }
+  pdBusy = false; render();
+}
+
+function renderPace(b){
+  const t = today();
+  const sumDay = d => state.entries.filter(e => e.type==="sale" && e.date===d).reduce((a,e)=>a+(+e.amount||0),0);
+  const cur = []; let acc = 0; b.days.forEach(d => { if (d <= t){ acc += sumDay(d); cur.push(acc); } });
+  const pdays = b.prevDays || b.days.map(d => addDays(d, b.shift));
+  const prev = []; acc = 0; pdays.forEach(d => { acc += sumDay(d); prev.push(acc); });
+  const n = Math.max(b.days.length, pdays.length);
+  const max = Math.max(1, ...cur, ...prev);
+  const W=440,H=120,L=6,R=6,T=10,B=18; const x = i => L + (W-L-R) * (n>1 ? i/(n-1) : 0); const y = v => T + (H-T-B)*(1 - v/max);
+  const path = a => a.map((v,i) => `${i?"L":"M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  const area = cur.length ? `${path(cur)}L${x(cur.length-1)},${H-B}L${x(0)},${H-B}Z` : "";
+  const last = cur.length - 1;
+  const lbl = i => { const d = parse(b.days[Math.min(i, b.days.length-1)]); return state.range === "week" ? d.toLocaleDateString("en-US",{weekday:"short"}) : `${d.getMonth()+1}/${d.getDate()}`; };
+  $("#pace").innerHTML = `<div class="key"><span><i></i>${esc(b.label)}</span>${state.range!=="all"?`<span><i class="prev"></i>${state.range==="today"?"7 days before":"Previous "+(state.range==="week"?"week":"month")}</span>`:""}<span style="margin-left:auto">${esc(b.paceLbl)}</span></div>
+  <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Running sales total">
+    <defs><linearGradient id="pg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--signal)" stop-opacity=".5"/><stop offset="1" stop-color="var(--signal)" stop-opacity="0"/></linearGradient></defs>
+    <line x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}" stroke="rgb(255 255 255/.15)"/>
+    ${state.range!=="all" ? `<path d="${path(prev)}" fill="none" stroke="var(--band-muted)" stroke-width="1.5" stroke-dasharray="4 4" opacity=".8"/>` : ""}
+    ${area ? `<path class="fadein" d="${area}" fill="url(#pg)"/>` : ""}
+    ${cur.length>1 ? `<path class="draw" pathLength="1" d="${path(cur)}" fill="none" stroke="var(--signal)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>` : ""}
+    ${cur.length ? `<circle class="dot-live" cx="${x(last)}" cy="${y(cur[last])}" r="5" fill="var(--signal)"/><circle cx="${x(last)}" cy="${y(cur[last])}" r="5" fill="var(--signal)" stroke="#fff" stroke-width="2"/>` : ""}
+    <text x="${L}" y="${H-4}">${lbl(0)}</text><text x="${W-R}" y="${H-4}" text-anchor="end">${lbl(n-1)}</text>
+  </svg>`;
+}
+
+function renderChart(){
+  const t = today(); const days = []; for (let i=13;i>=0;i--) days.push(addDays(t,-i));
+  const vals = days.map(d => state.entries.filter(e => e.type==="sale" && e.date===d).reduce((a,e)=>a+(+e.amount||0),0));
+  const apps = days.map(d => state.entries.filter(e => e.type==="credit" && e.date===d).length);
+  $("#chartTotal").textContent = money(vals.reduce((a,b)=>a+b,0)) + " total";
+  const max = Math.max(...vals);
+  if (!max){ $("#chart").innerHTML = `<div class="empty">No sales in the last 14 days yet. Tap <b>+ Sale</b> after your next ticket.</div>`; return; }
+  const raw = max/3, p10 = Math.pow(10, Math.floor(Math.log10(raw))), m = raw/p10, step = (m<=1?1:m<=2?2:m<=5?5:10)*p10, top = Math.ceil(max/step)*step;
+  const W=560,H=210,L=46,R=8,T=12,B=36, cw=(W-L-R)/days.length, y = v => T + (H-T-B)*(1-v/top);
+  let g = "";
+  for (let v=0; v<=top+1e-9; v+=step) g += `<line class="gl" x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end">${v>=1000?"$"+(v/1000)+"k":"$"+v}</text>`;
+  days.forEach((d,i) => {
+    const x = L + i*cw + cw*.14, w = cw*.72, isT = d === t;
+    if (vals[i]) g += `<rect class="grow" style="animation-delay:${i*35}ms" x="${x}" y="${y(vals[i])}" width="${w}" height="${(H-B)-y(vals[i])}" rx="2" fill="${isT?"var(--signal)":"var(--ink)"}"><title>${fmtDay(d)}: ${money(vals[i])}</title></rect>`;
+    if (apps[i]) g += `<rect x="${x+w/2-4}" y="${H-B+5}" width="8" height="8" rx="1.5" fill="var(--signal)"><title>${apps[i]} card app${apps[i]>1?"s":""}</title></rect>`;
+    if (i%2===1 || isT){ const dd = parse(d); g += `<text x="${x+w/2}" y="${H-6}" text-anchor="middle" ${isT?'style="fill:var(--signal-deep);font-weight:700"':""}>${dd.getMonth()+1}/${dd.getDate()}</text>`; }
+  });
+  $("#chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily sales for the last 14 days">${g}</svg><div class="cap" style="font-weight:500;font-size:12px;padding-top:4px"><span style="color:var(--signal)">■</span> under a bar = card app that day · orange bar is today</div>`;
+}
+
+function renderGoals(){
+  const t = today(), ws = weekStart(t), c = compute({start:ws, end:addDays(ws,6)}), G = state.goals;
+  const dayIdx = Math.min(7, Math.round((parse(t)-parse(ws))/864e5)+1);
+  const rows = [["Sales", c.total, +G.weeklySales, money, true], ["Card apps", c.apps, +G.weeklyApps, v => String(Math.round(v)), true],
+    ["Packdowns", c.pack, +G.weeklyPackdowns, v => String(Math.round(v)), true], ["Protection attach", isFinite(c.ppRate) ? c.ppRate*100 : 0, +G.ppAttach, v => Math.round(v)+"%", false]];
+  const box = $("#goals");
+  if (!box.children.length) box.innerHTML = rows.map((_,i) => `<div class="goal"><span class="n" id="gn${i}"></span><span class="of" id="go${i}"></span><div class="tape" id="gt${i}"><span></span></div><span class="p" id="gp${i}"></span></div>`).join("");
+  rows.forEach(([n,cur,goal,f,showPace],i) => {
+    const r = goal ? Math.min(1, cur/goal) : 0, hit = goal && cur >= goal;
+    $("#gn"+i).textContent = n; $("#go"+i).innerHTML = `${f(cur)} <small>/ ${f(goal)}</small>`;
+    const tp = $("#gt"+i); tp.classList.toggle("done", !!hit); requestAnimationFrame(() => tp.firstElementChild.style.width = (r*100)+"%");
+    $("#gp"+i).innerHTML = hit ? "<b>Goal hit.</b>" : showPace && goal ? `Need <b>${f(goal-cur)}</b> more · on pace for ${f(Math.round(cur/dayIdx*7))}` : goal ? `Need ${f(goal-cur)} more` : "";
+  });
+}
+
+function renderMix(c, b){
+  $("#mixLbl").textContent = b.long;
+  const rows = Object.entries(c.byCat).sort((a,b)=>b[1].amt-a[1].amt);
+  if (!rows.length){ $("#mix").innerHTML = `<div class="empty">Category split shows up once you log a sale in this range.</div>`; return; }
+  const max = rows[0][1].amt || 1;
+  $("#mix").innerHTML = rows.map(([k,v],i) => `<div class="mrow"><span>${esc(k)}<small>${v.qty} unit${v.qty===1?"":"s"}</small></span><span class="bar"><i style="width:${v.amt/max*100}%;animation-delay:${i*60}ms"></i></span><span class="amt">${money(v.amt)}</span></div>`).join("");
+}
+
+function renderStats(c){
+  const s = [["Paid on store card", c.tickets ? `${c.onCard}` : "–", c.tickets ? pct(c.onCard/c.tickets)+" of tickets" : ""],
+    ["Special orders", String(c.special)], ["Sales from your leads", String(c.fromLead)],
+    ["Best day", c.best ? money(c.best[1]) : "–", c.best ? fmtDay(c.best[0]) : ""],
+    ["Biggest ticket", c.biggest ? money(c.biggest.amount) : "–", c.biggest ? (c.biggest.orderNumber ? "Order "+c.biggest.orderNumber : "") : ""],
+    ["Avg per selling day", c.days ? money(c.total/c.days) : "–"], ["Shifts worked", String(c.shifts), c.hours ? `${c.hours} hrs` : ""],
+    ["Customer shout-outs", String(c.kudos)]];
+  $("#stats").innerHTML = s.map(([l,v,sub]) => `<div class="stat"><span class="cap">${l}</span><span class="v num">${v}</span>${sub?`<span class="s">${esc(sub)}</span>`:""}</div>`).join("");
+}
+
+function renderLeads(){
+  const t = today(), all = state.entries.filter(e => e.type==="lead");
+  $("#pipeVal").textContent = money(all.filter(e => OPEN.has(e.status)).reduce((a,e)=>a+(+e.est||0),0)) + " open pipeline";
+  document.querySelectorAll("#leadFilters button").forEach(b => b.classList.toggle("on", b.dataset.f===state.leadF));
+  const F = {open:e => OPEN.has(e.status), due:e => OPEN.has(e.status) && e.followUp && e.followUp<=t, won:e => e.status==="Won", lost:e => e.status==="Lost", all:() => true};
+  const L = all.filter(F[state.leadF]).sort((a,b) => (a.followUp||"9999").localeCompare(b.followUp||"9999"));
+  if (!L.length){ $("#leadList").innerHTML = `<div class="empty">${state.leadF==="open" ? "No open leads. When a customer says they need to measure first, tap <b>+ Lead</b> and set a follow-up date." : "Nothing here."}</div>`; return; }
+  $("#leadList").innerHTML = L.map(e => {
+    const isDue = OPEN.has(e.status) && e.followUp && e.followUp<=t, st = e.status==="Won"?"ok":e.status==="Lost"?"bad":isDue?"due":"";
+    return `<div class="row"><span class="tag lead">${esc(e.status)}</span>
+      <div class="main"><div class="t">${esc(e.name||"Customer")} ${e.example?'<span class="pill ex">example</span>':""}</div>
+      <div class="m">${esc(e.interest||"")}${e.contact?" · <span class='mono'>"+esc(e.contact)+"</span>":""}</div>
+      <div class="m">Met ${fmtDay(e.date)}${e.followUp?` · <span class="pill ${st}">follow up ${fmtDay(e.followUp)}</span>`:""}</div>
+      ${e.notes?`<div class="m">${esc(e.notes)}</div>`:""}</div>
+      <div class="r"><span class="amt">${e.est?money(e.est):""}</span></div>
+      <div class="acts">${LEAD_STATUS.map(s => `<button class="bs ${s===e.status?"on":""}" data-lead="${e.id}" data-st="${s}">${s}</button>`).join("")}<button class="bs" data-edit="${e.id}">Edit</button></div></div>`;
+  }).join("");
+}
+
+function describe(e){
+  switch(e.type){
+    case "sale": { const it = itemsOf(e), u = unitsOf(e);
+      return {title: (e.orderNumber ? `Order ${e.orderNumber}` : (it[0].category||"Sale")) + (e.customer ? ` · ${e.customer}` : ""),
+        pills: [u>1?`${u} units`:"", e.protection?`Protection ${e.ppAmount?money(e.ppAmount):""}`:"", e.install?"Install":"", e.haulAway?"Haul-away":"", e.onCard?"Store card":"", e.special?"Special order":"", e.leadId?"From lead":""].filter(Boolean),
+        items: it, amt: money(e.amount)}; }
+    case "credit": return {title: `${e.kind||"Card app"}${e.customer?" · "+e.customer:""}`, pills:[], status:e.result};
+    case "lead": return {title: e.name||"Lead", pills:[e.interest||"", e.status], amt: e.est?money(e.est):""};
+    case "packdown": return {title: `${e.count} packdown${+e.count===1?"":"s"}`, pills:[]};
+    case "shift": return {title: `${e.hours} hour shift`, pills:[]};
+    case "kudos": return {title: `Shout-out${e.customer?" from "+e.customer:""}`, pills:[]};
+  }
+  return {title:e.type, pills:[]};
+}
+
+function renderLog(){
+  document.querySelectorAll("#logFilters button").forEach(b => b.classList.toggle("on", b.dataset.f===state.logF));
+  const b = rangeBounds(state.range), q = state.q.toLowerCase();
+  const hay = e => [e.orderNumber, e.customer, e.name, e.brand, e.notes, e.kind, ...(e.items||[]).flatMap(i => [i.brand, i.model, i.category])].join(" ").toLowerCase();
+  let L = state.entries.filter(e => (q ? true : inRange(e,b)) && (state.logF==="all" || e.type===state.logF) && (!q || hay(e).includes(q)));
+  L.sort((a,b) => b.date.localeCompare(a.date) || (b.ts||0)-(a.ts||0));
+  if (!state.loaded){ $("#logList").innerHTML = `<div class="empty">Loading…</div>`; return; }
+  if (!L.length){ $("#logList").innerHTML = `<div class="empty">${q ? `Nothing matches “${esc(state.q)}”.` : `Nothing logged for ${b.long.toLowerCase()}. Use the buttons at the bottom to log a sale, card app, lead, packdown, hours or a shout-out.`}</div>`; return; }
+  let html = "", cur = "";
+  L.forEach(e => {
+    if (e.date !== cur){ cur = e.date; const dt = state.entries.filter(x=>x.type==="sale"&&x.date===cur).reduce((a,x)=>a+(+x.amount||0),0);
+      html += `<div class="dh"><span>${fmtDay(cur)}</span><span>${dt?money(dt):""}</span></div>`; }
+    const d = describe(e);
+    const st = d.status ? `<span class="pill ${d.status==="Approved"?"ok":d.status==="Declined"?"bad":""}">${esc(d.status)}</span>` : "";
+    html += `<div class="row"><span class="tag ${e.type}">${TYPE_LABEL[e.type]}</span>
+      <div class="main"><div class="t">${esc(d.title)} ${st} ${e.example?'<span class="pill ex">example</span>':""}</div>
+      ${d.pills.length?`<div class="m">${d.pills.map(p => `<span class="pill">${esc(p)}</span>`).join("")}</div>`:""}
+      ${d.items?`<ul class="items">${d.items.map(i => `<li><span>${+i.qty>1?`<b>${i.qty}×</b> `:""}${esc(i.category)}${i.brand?" · "+esc(i.brand):""}${i.model?` <span class="mono">${esc(i.model)}</span>`:""}</span><span class="mono">${money((+i.price||0)*(+i.qty||0))}</span></li>`).join("")}</ul>`:""}
+      ${e.notes?`<div class="m">${esc(e.notes)}</div>`:""}</div>
+      <div class="r"><span class="amt">${d.amt||""}</span><button class="bs" data-edit="${e.id}">Edit</button></div></div>`;
+  });
+  $("#logList").innerHTML = html;
+}
+
+/* ---------- forms ---------- */
+const sheet = $("#sheet"), form = $("#sheetForm");
+let editing = null;
+const opt = (arr, v) => arr.map(x => `<option ${x===v?"selected":""}>${esc(x)}</option>`).join("");
+const fld = (id, label, inner, full) => `<div class="field ${full?"full":""}"><label for="${id}">${label}</label>${inner}</div>`;
+const inp = (id, type, v, attrs="") => `<input id="${id}" name="${id}" type="${type}" value="${esc(v??"")}" ${attrs}>`;
+const tg = (id, label, v) => `<label class="tg"><input type="checkbox" id="${id}" ${v?"checked":""}>${label}</label>`;
+const stepper = (id, v, cls="") => `<div class="stepper"><button type="button" data-step="-1" aria-label="Less">−</button><input id="${id}" class="${cls}" type="number" inputmode="numeric" min="0" value="${esc(v)}" aria-label="Quantity"><button type="button" data-step="1" aria-label="More">+</button></div>`;
+const head = (title, tot) => `<div class="sh-head"><h2>${title}</h2>${tot?`<span class="tot" id="sheetTot">$0</span>`:""}</div>`;
+let liSeq = 0;
+const lineItem = (i={}) => { const k = "li" + (++liSeq);
+  return `<div class="li" data-li="${k}">
+    <select class="i-cat" aria-label="Category">${opt(CATS, i.category||"Refrigerator")}</select>
+    <input class="i-brand" type="text" placeholder="Brand" value="${esc(i.brand||"")}" aria-label="Brand">
+    <button type="button" class="x" data-rm="${k}" aria-label="Remove item">×</button>
+    <div class="l2"><input class="i-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Price each" value="${esc(i.price ?? "")}" aria-label="Price each">
+      ${stepper("q_"+k, i.qty||1, "i-qty")}
+      <input class="i-model model" type="text" placeholder="Model # (optional)" value="${esc(i.model||"")}" aria-label="Model number"></div>
+    <div class="sub">Line total <b class="i-sub">$0</b></div></div>`; };
+
+function readItems(){
+  return [...form.querySelectorAll(".li")].map(li => ({category: li.querySelector(".i-cat").value, brand: li.querySelector(".i-brand").value.trim(), model: li.querySelector(".i-model").value.trim(),
+    qty: Math.max(0, parseInt(li.querySelector(".i-qty").value)||0), price: Math.round((parseFloat(li.querySelector(".i-price").value)||0)*100)/100}));
+}
+function updateTotal(){
+  const it = readItems(); form.querySelectorAll(".li").forEach((li,i) => li.querySelector(".i-sub").textContent = money(it[i].price*it[i].qty, 2));
+  const pp = parseFloat($("#f_pp")?.value)||0, sub = it.reduce((a,i) => a + i.price*i.qty, 0);
+  const tot = $("#sheetTot"); if (tot) countTo(tot, sub + pp, v => money(v, 2));
+  const u = it.reduce((a,i)=>a+i.qty,0); const s = $("#unitSum"); if (s) s.textContent = `${u} unit${u===1?"":"s"} · ${it.length} line${it.length===1?"":"s"}`;
+}
+
+function openForm(type, e){
+  editing = e || null; const v = e || {date: today()};
+  const openLeads = state.entries.filter(x => x.type==="lead" && (OPEN.has(x.status) || x.id===v.leadId));
+  const date = fld("f_date","Date",inp("f_date","date",v.date));
+  const notes = (ph, label="Notes") => fld("f_notes",label,`<textarea id="f_notes" placeholder="${ph}">${esc(v.notes||"")}</textarea>`, true);
+  let f = "";
+  if (type==="sale"){
+    const items = e ? itemsOf(e) : [{}];
+    f = `<div class="fields">${fld("f_order","Order number",inp("f_order","text",v.orderNumber,'inputmode="numeric" autocomplete="off" placeholder="e.g. H1234-567890"'))}${date}
+      ${fld("f_customer","Customer (optional)",inp("f_customer","text",v.customer,'placeholder="Last name"'), true)}</div>
+      <div class="ph"><span class="lbl">Items on this order</span><span class="cap" id="unitSum"></span></div>
+      <div class="items-ed" id="itemsEd">${items.map(lineItem).join("")}</div>
+      <button type="button" class="add" id="addItem">+ Add another item</button>
+      <div class="toggles">${tg("f_install","Install",e ? e.install : true)}${tg("f_haul","Haul-away",v.haulAway)}${tg("f_protection","Protection plan",v.protection)}${tg("f_onCard","Paid on store card",v.onCard)}${tg("f_special","Special order",v.special)}</div>
+      <div class="fields">${fld("f_pp","Protection plan $",inp("f_pp","number",v.ppAmount||"",'inputmode="decimal" step="0.01" min="0" placeholder="0"'))}
+      ${openLeads.length ? fld("f_lead","Closed from a lead?",`<select id="f_lead"><option value="">No</option>${openLeads.map(l=>`<option value="${l.id}" ${l.id===v.leadId?"selected":""}>${esc(l.name||"Customer")} · ${esc(l.interest||"")}</option>`).join("")}</select>`) : ""}
+      ${notes("Upsell, what closed it, delivery date")}</div>`;
+  }
+  if (type==="credit") f = `<div class="fields">${date}${fld("f_result","Result",`<select id="f_result">${opt(["Approved","Pending","Declined"], v.result||"Approved")}</select>`)}
+    ${fld("f_kind","Application type",`<select id="f_kind">${opt(CREDIT_KINDS, v.kind||CREDIT_KINDS[0])}</select>`)}${fld("f_customer","Customer (optional)",inp("f_customer","text",v.customer))}
+    ${notes("Promo or financing offer that got them to apply")}</div>`;
+  if (type==="lead") f = `<div class="fields">${fld("f_name","Customer name",inp("f_name","text",v.name,'placeholder="First name, last initial"'))}${fld("f_contact","Phone or email",inp("f_contact","text",v.contact,'inputmode="tel"'))}
+    ${fld("f_interest","Looking at",`<select id="f_interest">${opt([...CATS,"Kitchen package","Laundry pair"], v.interest||"Refrigerator")}</select>`)}${fld("f_est","Est. value ($)",inp("f_est","number",v.est,'inputmode="decimal" min="0" placeholder="2500"'))}
+    ${fld("f_status","Status",`<select id="f_status">${opt(LEAD_STATUS, v.status||"New")}</select>`)}${fld("f_follow","Follow up on",inp("f_follow","date",v.followUp || addDays(today(),2)))}
+    ${date}${notes("Measurements, budget, finish, objections")}</div>`;
+  if (type==="packdown") f = `<div class="fields">${date}${fld("f_count","Packdowns",stepper("f_count", v.count||1))}${notes("Which bays, truck day")}</div>`;
+  if (type==="shift") f = `<div class="fields">${date}${fld("f_hours","Hours worked",inp("f_hours","number",v.hours||8,'inputmode="decimal" step="0.25" min="0"'))}${notes("Busy, slow, truck day")}</div>`;
+  if (type==="kudos") f = `<div class="fields">${date}${fld("f_customer","Customer (optional)",inp("f_customer","text",v.customer))}${notes("Survey mention, told a manager, left a review","What they said")}</div>`;
+  form.innerHTML = head(`${e?"Edit":"Log"} ${TYPE_LABEL[type].toLowerCase()}`, type==="sale") + `<div class="sheet">${f}<div class="err" id="formErr" hidden></div>
+    <div class="foot"><div>${e?`<button type="button" class="btn danger" id="delBtn">Delete</button>`:""}</div>
+    <div style="display:flex;gap:8px"><button type="button" class="btn ghost" id="cancelBtn">Cancel</button><button type="submit" class="btn go">${e?"Save":"Log it"}</button></div></div></div>`;
+  form.dataset.type = type;
+  $("#cancelBtn").onclick = () => sheet.close();
+  if (e){ const del = $("#delBtn"); del.onclick = async () => {
+    if (del.dataset.armed){ sheet.close(); await remove(e.id); toast("Deleted"); } else { del.dataset.armed = 1; del.textContent = "Tap again to delete"; } }; }
+  if (type==="sale"){
+    $("#addItem").onclick = () => { $("#itemsEd").insertAdjacentHTML("beforeend", lineItem({category: readItems().slice(-1)[0]?.category})); updateTotal(); $("#itemsEd").lastElementChild.querySelector(".i-price").focus(); };
+    form.addEventListener("input", updateTotal); updateTotal();
+  }
+  sheet.showModal();
+  const first = form.querySelector(type==="sale" ? "#f_order" : type==="lead" ? "#f_name" : null); if (first && !e) first.focus();
+}
+form.addEventListener("click", ev => {
+  const s = ev.target.closest("[data-step]"); if (s){ const i = s.parentElement.querySelector("input"); i.value = Math.max(type0(i), (+i.value||0) + +s.dataset.step); updateTotal(); return; }
+  const rm = ev.target.closest("[data-rm]"); if (rm){ if (form.querySelectorAll(".li").length > 1){ rm.closest(".li").remove(); updateTotal(); } }
+});
+const type0 = i => i.classList.contains("i-qty") || i.id==="f_count" ? 1 : 0;
+
+form.addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const type = form.dataset.type; const g = id => { const el = $("#"+id); return el ? (el.type==="checkbox" ? el.checked : el.value.trim()) : undefined; };
+  const err = m => { const x = $("#formErr"); x.textContent = m; x.hidden = false; };
+  const base = {type, date: g("f_date") || editing?.date || today(), notes: g("f_notes")||""};
+  let d;
+  if (type==="sale"){
+    const items = readItems().filter(i => i.qty > 0);
+    if (!items.length) return err("Add at least one item with a quantity.");
+    if (items.some(i => !(i.price > 0))) return err("Each item needs a price. Enter the price for one unit.");
+    const pp = parseFloat(g("f_pp"))||0, sub = items.reduce((a,i) => a + i.price*i.qty, 0);
+    d = {...base, orderNumber: g("f_order"), customer: g("f_customer"), items, amount: Math.round((sub + pp)*100)/100, units: items.reduce((a,i)=>a+i.qty,0),
+      category: items[0].category, protection: g("f_protection") || pp > 0, ppAmount: pp, install: g("f_install"), haulAway: g("f_haul"),
+      onCard: g("f_onCard"), special: g("f_special"), leadId: g("f_lead")||""};
+  }
+  if (type==="credit") d = {...base, result:g("f_result"), kind:g("f_kind"), customer:g("f_customer")};
+  if (type==="lead"){ if (!g("f_name")) return err("Add a name so you know who to call back.");
+    d = {...base, name:g("f_name"), contact:g("f_contact"), interest:g("f_interest"), est: parseFloat(g("f_est"))||0, status:g("f_status"), followUp:g("f_follow")}; }
+  if (type==="packdown"){ const n = parseInt(g("f_count")); if (!(n>0)) return err("Packdowns should be at least 1."); d = {...base, count:n}; }
+  if (type==="shift"){ const h = parseFloat(g("f_hours")); if (!(h>0)) return err("Enter the hours you worked."); d = {...base, hours:h}; }
+  if (type==="kudos") d = {...base, customer:g("f_customer")};
+  d.ts = editing ? (editing.ts || Date.now()) : Date.now(); if (editing?.example) d.example = true;
+  sheet.close();
+  const ok = await save(editing?.id, d);
+  if (!ok) return;
+  if (type==="sale" && d.leadId){ const lead = state.entries.find(x => x.id===d.leadId); if (lead && lead.status!=="Won") await patch(lead.id, {status:"Won"}); }
+  if (!editing && (type==="sale" || (type==="credit" && d.result==="Approved") || type==="kudos")) burst(type==="sale" ? Math.min(160, 50 + d.amount/40) : 60);
+  toast(editing ? "Saved" : type==="sale" ? `Sale logged<b>${money(d.amount)}</b>` : `${TYPE_LABEL[type]} logged`);
+});
+
+/* ---------- celebration burst ---------- */
+const fx = $("#fx"), ctx = fx.getContext("2d"); let parts = [], running = false;
+function burst(n){
+  if (RM) return;
+  const dpr = devicePixelRatio || 1; fx.width = innerWidth*dpr; fx.height = innerHeight*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  const cs = getComputedStyle(document.documentElement), cols = [cs.getPropertyValue("--signal").trim(), cs.getPropertyValue("--signal-hot").trim(), "#FFFFFF", cs.getPropertyValue("--ink").trim()];
+  const ox = innerWidth/2, oy = innerHeight*0.62;
+  for (let i=0;i<n;i++){ const a = -Math.PI/2 + (Math.random()-.5)*Math.PI*1.1, s = 6 + Math.random()*9;
+    parts.push({x:ox, y:oy, vx:Math.cos(a)*s, vy:Math.sin(a)*s, r:Math.random()*Math.PI, vr:(Math.random()-.5)*.4, w:5+Math.random()*6, h:3+Math.random()*5, c:cols[i%cols.length], life:0}); }
+  if (!running){ running = true; requestAnimationFrame(tick); }
+}
+function tick(){
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+  parts = parts.filter(p => p.life < 110 && p.y < innerHeight + 20);
+  parts.forEach(p => { p.life++; p.vy += .28; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+    ctx.save(); ctx.globalAlpha = Math.max(0, 1 - p.life/110); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.strokeStyle = "rgba(0,0,0,.15)";
+    ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.strokeRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore(); });
+  if (parts.length) requestAnimationFrame(tick); else { running = false; ctx.clearRect(0,0,innerWidth,innerHeight); }
+}
+
+/* ---------- data ---------- */
+async function save(id, data){
+  if (!state.db){ toast("Can't save right now. This browser is blocking storage."); return false; }
+  try { const col = state.db.collection("entries"); await (id ? col.doc(id) : col.doc()).set(data); return true; }
+  catch(e){ toast(e?.code==="quota_exceeded" ? "Storage is full. Export and delete older entries." : "Couldn't save. Check your connection and try again."); return false; }
+}
+async function patch(id, data){ try { await state.db.collection("entries").doc(id).update(data); } catch(e){ toast("Couldn't update that lead."); } }
+async function remove(id){ try { await state.db.collection("entries").doc(id).delete(); } catch(e){ toast("Couldn't delete. Try again."); } }
+let toastT;
+function toast(m){ const t = $("#toast"); t.innerHTML = m; t.hidden = false; t.style.animation = "none"; t.offsetHeight; t.style.animation = ""; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+
+/* ---------- wiring ---------- */
+function setTab(t){ state.tab = t; document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab===t));
+  ["numbers","leads","log"].forEach(x => $("#tab-"+x).hidden = x!==t); render(); }
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
+$("#rangeSeg").onclick = e => { const r = e.target.closest("button")?.dataset.r; if (r){ state.range = r; try{localStorage.setItem("range", r)}catch(_){} render(); } };
+document.querySelectorAll("[data-new]").forEach(b => b.onclick = () => openForm(b.dataset.new));
+$("#pdBtn").onclick = addPackdown;
+$("#leadFilters").onclick = e => { const f = e.target.closest("button")?.dataset.f; if (f){ state.leadF = f; renderLeads(); } };
+$("#logFilters").onclick = e => { const f = e.target.closest("button")?.dataset.f; if (f){ state.logF = f; renderLog(); } };
+$("#logSearch").oninput = e => { state.q = e.target.value.trim(); renderLog(); };
+document.addEventListener("click", async e => {
+  if (e.target.closest("dialog")) return;
+  const ed = e.target.closest("[data-edit]"); if (ed){ const x = state.entries.find(y => y.id===ed.dataset.edit); if (x) openForm(x.type, x); return; }
+  const ls = e.target.closest("[data-lead]"); if (ls) await patch(ls.dataset.lead, {status: ls.dataset.st});
+});
+const clr = $("#clearExamples");
+clr.onclick = async () => {
+  if (!clr.dataset.armed){ clr.dataset.armed = 1; clr.textContent = "Tap again to clear"; return; }
+  const ex = state.entries.filter(e => e.example); clr.disabled = true;
+  for (const e of ex) await remove(e.id);
+  clr.disabled = false; delete clr.dataset.armed; clr.textContent = "Clear examples"; toast(`Cleared ${ex.length} examples`);
+};
+$("#editGoals").onclick = () => {
+  const G = state.goals; editing = null;
+  form.innerHTML = head("Weekly goals") + `<div class="sheet"><div class="fields">
+    ${fld("g_sales","Sales ($)",inp("g_sales","number",G.weeklySales,'inputmode="decimal" min="0"'))}${fld("g_apps","Card apps",inp("g_apps","number",G.weeklyApps,'inputmode="numeric" min="0"'))}
+    ${fld("g_pack","Packdowns",inp("g_pack","number",G.weeklyPackdowns,'inputmode="numeric" min="0"'))}${fld("g_pp","Protection attach (%)",inp("g_pp","number",G.ppAttach,'inputmode="numeric" min="0" max="100"'))}</div>
+    <div class="foot"><span></span><div style="display:flex;gap:8px"><button type="button" class="btn ghost" id="cancelBtn">Cancel</button><button type="button" class="btn go" id="saveGoals">Save goals</button></div></div></div>`;
+  form.dataset.type = "goals";
+  $("#cancelBtn").onclick = () => sheet.close();
+  $("#saveGoals").onclick = async () => {
+    const g = {weeklySales:+$("#g_sales").value||0, weeklyApps:+$("#g_apps").value||0, weeklyPackdowns:+$("#g_pack").value||0, ppAttach:+$("#g_pp").value||0};
+    sheet.close(); state.goals = g; render();
+    try { await state.db.doc("settings/goals").set(g); toast("Goals saved"); } catch(_){ toast("Couldn't save goals."); }
+  };
+  sheet.showModal();
+};
+$("#exportCsv").onclick = async () => {
+  const cols = ["date","type","orderNumber","customer","amount","units","items","protection","ppAmount","install","haulAway","onCard","special","result","kind","name","contact","interest","est","status","followUp","count","hours","notes"];
+  const q = v => { const s = v==null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+  const rows = [...state.entries].sort((a,b)=>a.date.localeCompare(b.date)).map(e => cols.map(c => c==="items" && e.type==="sale" ? q(itemsOf(e).map(i => `${i.qty}x ${i.category}${i.brand?" "+i.brand:""}${i.model?" "+i.model:""} @ ${i.price}`).join("; ")) : q(e[c])).join(","));
+  saveFile(`floor-ledger-${today()}.csv`, [cols.join(","), ...rows].join("\n"), "text/csv");
+};
+
+/* ---------- files: CSV export, backup, restore ---------- */
+async function saveFile(name, text, type){
+  const blob = new Blob([text], {type});
+  try {
+    const file = new File([blob], name, {type});
+    if (/iphone|ipad|ipod|android/i.test(navigator.userAgent) && navigator.canShare?.({files:[file]})){ await navigator.share({files:[file], title:name}); return true; }
+  } catch(e){ if (e?.name === "AbortError") return false; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); return true;
+}
+const lsGet = k => { try { return localStorage.getItem(k); } catch(_){ return null; } };
+const lsSet = (k,v) => { try { localStorage.setItem(k, v); } catch(_){} };
+function renderBackup(){
+  const last = lsGet("floorLedger.lastBackup"), mine = state.entries.filter(e => !e.example).length;
+  const days = last ? Math.floor((Date.now() - +last)/864e5) : null;
+  const stale = mine > 0 && (days == null || days >= 14);
+  $("#backupBox").classList.toggle("stale", stale);
+  $("#backupTxt").textContent = days == null ? "Your entries are saved on this phone only. Save a backup file now and then (Files or iCloud Drive is fine)."
+    : `Last backup ${days === 0 ? "today" : days === 1 ? "yesterday" : days + " days ago"}. Entries are saved on this phone only.`;
+}
+$("#backupBtn").onclick = async () => {
+  const body = JSON.stringify({app:"floor-ledger", version:1, savedAt:new Date().toISOString(), ...state.db._raw()}, null, 1);
+  if (await saveFile(`floor-ledger-backup-${today()}.json`, body, "application/json")){ lsSet("floorLedger.lastBackup", String(Date.now())); renderBackup(); toast("Backup saved"); }
+};
+$("#restoreBtn").onclick = () => $("#restoreFile").click();
+$("#restoreFile").onchange = async ev => {
+  const f = ev.target.files?.[0]; ev.target.value = ""; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (d.app !== "floor-ledger" || typeof d.entries !== "object") throw 0;
+    const n = state.db._merge(d);
+    toast(`Restored ${n} entr${n===1?"y":"ies"}`);
+  } catch(_){ toast("That file isn't a Floor Ledger backup."); }
+};
+
+try { const r = localStorage.getItem("range"); if (r) state.range = r; } catch(_){}
+render();
+
+/* ---------- on-device store ----------
+   Same small surface the page used on claude.ai (collection/doc, set/update/delete, onSnapshot),
+   kept in this browser's localStorage under one key. Nothing leaves the phone. */
+function makeLocalDb(){
+  const KEY = "floorLedger.v1";
+  const load = () => { let d; try { d = JSON.parse(localStorage.getItem(KEY)) || {}; } catch(_){ d = {}; } d.entries = d.entries || {}; d.settings = d.settings || {}; return d; };
+  let data = load(); const subs = new Set(); let queued = false;
+  const notify = () => { if (queued) return; queued = true; queueMicrotask(() => { queued = false; subs.forEach(f => f()); }); };
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e){ throw {code:"quota_exceeded"}; } notify(); };
+  const snap = (id, o) => ({id, exists: !!o, data: () => o ? JSON.parse(JSON.stringify(o)) : undefined, metadata:{fromCache:false, hasPendingWrites:false}});
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const coll = name => {
+    const bucket = () => data[name] || (data[name] = {});
+    return {
+      doc: id => { id = id || newId(); return {
+        id,
+        set: async v => { bucket()[id] = JSON.parse(JSON.stringify(v)); persist(); },
+        update: async v => { if (!bucket()[id]) throw {code:"invalid_argument"}; Object.assign(bucket()[id], JSON.parse(JSON.stringify(v))); persist(); },
+        delete: async () => { delete bucket()[id]; persist(); },
+        onSnapshot: next => { const f = () => next(snap(id, bucket()[id])); subs.add(f); f(); return () => subs.delete(f); }
+      }; },
+      onSnapshot: next => { const f = () => { const b = bucket(); const docs = Object.keys(b).map(k => snap(k, b[k])); next({docs, size:docs.length, empty:!docs.length, metadata:{fromCache:false}}); };
+        subs.add(f); f(); return () => subs.delete(f); }
+    };
+  };
+  addEventListener("storage", e => { if (e.key === KEY){ data = load(); notify(); } });   // another tab changed it
+  return {
+    collection: coll,
+    doc: path => { const [c, id] = path.split("/"); return coll(c).doc(id); },
+    _raw: () => JSON.parse(JSON.stringify(data)),
+    _merge: d => { let n = 0; for (const [k, v] of Object.entries(d.entries || {})){ if (v && v.type && v.date){ data.entries[k] = v; n++; } }
+      if (d.settings) data.settings = {...data.settings, ...d.settings}; persist(); return n; }
+  };
+}
+
+function exampleEntries(){
+  const t = today(), d = n => addDays(t, -n), it = (category, brand, model, price, qty=1) => ({category, brand, model, qty, price});
+  const E = [
+    {type:"shift", date:d(6), hours:8},
+    {type:"sale", date:d(6), orderNumber:"H4812-301557", items:[it("Refrigerator","Samsung","RF28T5001SR",1930)], protection:true, ppAmount:219, install:true, haulAway:true},
+    {type:"credit", date:d(6), result:"Approved", kind:"Consumer card", notes:"Used 6-month financing"},
+    {type:"packdown", date:d(6), count:6, notes:"Laundry bay"},
+    {type:"shift", date:d(4), hours:8, notes:"Truck day"},
+    {type:"sale", date:d(4), orderNumber:"H4812-302104", customer:"Okafor", items:[it("Washer","LG","WM4000HWA",799), it("Dryer","LG","DLEX4000W",799)], install:true, onCard:true},
+    {type:"packdown", date:d(4), count:11},
+    {type:"shift", date:d(2), hours:6},
+    {type:"sale", date:d(2), orderNumber:"H4812-302388", items:[it("Dishwasher","Bosch","SHX78CM5N",650)], protection:true, ppAmount:99, install:true, haulAway:true},
+    {type:"credit", date:d(2), result:"Declined", kind:"Consumer card"},
+    {type:"kudos", date:d(2), customer:"Maria", notes:"Mentioned me by name on the survey"},
+    {type:"lead", date:d(2), name:"Dave R.", contact:"555-0142", interest:"Kitchen package", est:6800, status:"Quoted", followUp:t, notes:"Remodel, wants slate finish. Measuring this weekend."},
+    {type:"lead", date:d(1), name:"Priya K.", interest:"Range", est:1400, status:"New", followUp:addDays(t,2), notes:"Gas vs induction, checking her hookup"},
+    {type:"shift", date:t, hours:8},
+    {type:"sale", date:t, orderNumber:"H4812-303920", customer:"Hensley", items:[it("Refrigerator","GE Profile","PWE23KYNFS",3000), it("Range","GE Profile","PGS930YPFS",1199), it("Dishwasher","GE Profile","PDT715SYVFS",499), it("Microwave","GE Profile","PVM9005SJSS",200)],
+      protection:true, ppAmount:299, install:true, haulAway:true, onCard:true, special:true, notes:"Full kitchen, fridge is special order 2 weeks"},
+    {type:"credit", date:t, result:"Approved", kind:"Consumer card"},
+    {type:"packdown", date:t, count:4},
+  ];
+  return E.map((e, i) => { const x = {notes:"", ...e, example:true, ts:i+1};
+    if (x.type === "sale"){ x.units = x.items.reduce((a,j)=>a+j.qty,0); x.category = x.items[0].category; x.amount = x.items.reduce((a,j)=>a+j.price*j.qty,0) + (x.ppAmount||0); }
+    return x; });
+}
+$("#loadExamples").onclick = async () => { for (const [i, e] of exampleEntries().entries()) await state.db.collection("entries").doc("ex" + pad(i+1)).set(e); toast("Example week loaded"); };
+
+(() => {
+  let db;
+  try { db = makeLocalDb(); localStorage.setItem("floorLedger.probe", "1"); }
+  catch(_){ db = null; }
+  if (!db){ state.loaded = true; const st = $("#status"); st.hidden = false; st.textContent = "This browser is blocking storage (private mode?). Entries won't be kept."; render(); return; }
+  state.db = db;
+  navigator.storage?.persist?.().catch(() => {});
+  db.collection("entries").onSnapshot(snap => {
+    state.entries = snap.docs.map(d => ({id:d.id, ...d.data()})).filter(e => e.type && e.date);
+    state.loaded = true; render();
+  });
+  db.doc("settings/goals").onSnapshot(s => { if (s.exists){ state.goals = {...state.goals, ...s.data()}; render(); } });
+})();
+
+/* ---------- home-screen app: offline cache + install hint ---------- */
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")){
+  navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(() => {
+    if (!lsGet("floorLedger.offlineOk")){ lsSet("floorLedger.offlineOk", "1"); toast("Saved for offline use"); }
+  }).catch(() => {});
+}
+(() => {
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (standalone || lsGet("floorLedger.installHint") === "off") return;
+  const bar = document.createElement("div"); bar.className = "installbar";
+  bar.innerHTML = '<span id="installTxt"></span><button class="btn go" id="installGo" hidden>Install</button><button class="link" id="installX">Not now</button>';
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const show = txt => { bar.querySelector("#installTxt").textContent = txt; document.body.appendChild(bar); };
+  const hide = () => { bar.remove(); lsSet("floorLedger.installHint", "off"); };
+  bar.querySelector("#installX").onclick = hide;
+  if (ios) show("Add to your home screen: tap Share, then Add to Home Screen. It opens like an app and works offline.");
+  else addEventListener("beforeinstallprompt", e => { e.preventDefault(); show("Install Floor Ledger on this phone. It opens like an app and works offline.");
+    const go = bar.querySelector("#installGo"); go.hidden = false; go.onclick = async () => { e.prompt(); try { await e.userChoice; } catch(_){} hide(); }; });
+})();
+})();
+</script>
+</body>
+</html>
